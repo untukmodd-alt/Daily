@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0F1629">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daily Tasks">
+<meta name="application-name" content="Daily Tasks">
+<link rel="manifest" href="data:application/json,{%22name%22:%22Daily%20Tasks%22,%22short_name%22:%22Daily%20Tasks%22,%22start_url%22:%22./%22,%22display%22:%22standalone%22,%22background_color%22:%22%230F1629%22,%22theme_color%22:%22%230F1629%22,%22orientation%22:%22portrait%22,%22icons%22:[{%22src%22:%22https://via.placeholder.com/192x192/0F1629/4FC3F7?text=DT%22,%22sizes%22:%22192x192%22,%22type%22:%22image/png%22},{%22src%22:%22https://via.placeholder.com/512x512/0F1629/4FC3F7?text=DT%22,%22sizes%22:%22512x512%22,%22type%22:%22image/png%22}]}">
 <title>Daily Tasks</title>
 <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -996,8 +1002,8 @@ const notifGranted=()=>notifSupported()&&Notification.permission==='granted';
 
 function reqNotif(cb){
   if(!notifSupported()){toast('Notifikasi tidak didukung di app ini');cb(false);return;}
-  if(notifGranted()){cb(true);return;}
-  if(Notification.permission==='denied'){toast('Notifikasi diblokir — izinkan di pengaturan');cb(false);return;}
+  try{if(notifGranted()){cb(true);return;}
+  if(Notification.permission==='denied'){toast('Notifikasi diblokir — izinkan di pengaturan');cb(false);return;}}catch(e){cb(false);return;}
   try{
     Notification.requestPermission().then(p=>{
       if(p==='granted'){toast('Notifikasi diizinkan!');cb(true);}
@@ -1064,6 +1070,17 @@ if(!tasks.length&&!localStorage.getItem('dt4_init')){
   ].forEach(s=>tasks.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),done:false,bgData:null,bgOpacity:60,notif:false,...s}));
   save();fullRender();
 }
+
+
+// ══ SERVICE WORKER — offline support ══
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js')
+      .then(()=>console.log('Offline ready!'))
+      .catch(e=>console.warn('SW failed:',e));
+  });
+}
+
 </script>
 </body>
 </html>

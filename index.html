@@ -247,6 +247,16 @@ body.lock-on .task-item{cursor:pointer}
 .ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.55);width:28px;height:28px;pointer-events:none;animation:rpl .5s ease-out forwards;z-index:4}
 @keyframes popIn{0%{opacity:0;transform:translateY(5px) scale(.97)}100%{opacity:1;transform:none}}
 
+
+/* CONFIRM POPUP */
+.confirm-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:center;justify-content:center;padding:30px;opacity:0;pointer-events:none;transition:opacity .18s}
+.confirm-ov.open{opacity:1;pointer-events:all}
+.confirm-box{background:var(--surface);border-radius:20px;padding:22px 20px;width:100%;max-width:300px;border:1px solid rgba(255,255,255,.08);transform:scale(.92);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.confirm-ov.open .confirm-box{transform:scale(1)}
+.confirm-msg{font-size:15px;font-weight:700;color:var(--text);text-align:center;margin-bottom:18px;line-height:1.5}
+.confirm-acts{display:flex;gap:10px}
+.confirm-acts .btn{font-size:14px;padding:11px}
+
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:99px}
 </style>
@@ -379,6 +389,18 @@ body.lock-on .task-item{cursor:pointer}
   </div>
 </div>
 
+
+<!-- CONFIRM POPUP -->
+<div class="confirm-ov" id="confirmOv">
+  <div class="confirm-box">
+    <div class="confirm-msg" id="confirmMsg">Yakin?</div>
+    <div class="confirm-acts">
+      <button class="btn btn-cancel" onclick="closeConfirm()">Batal</button>
+      <button class="btn" id="confirmOkBtn" style="background:var(--danger);color:#fff;flex:1" onclick="okConfirm()">Hapus</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -400,6 +422,8 @@ function save(){
     localStorage.setItem('dt4_streak',String(streak));
     localStorage.setItem('dt4_lc',lastComplete||'');
     localStorage.setItem('dt4_cats',JSON.stringify(cats));
+    localStorage.setItem('dt4_lock',String(lockMode));
+    localStorage.setItem('dt4_theme',currentTheme);
 
   }catch(e){toast('Penyimpanan penuh! Hapus foto lama.');}
 }
@@ -409,8 +433,9 @@ function load(){
     streak=parseInt(localStorage.getItem('dt4_streak')||'0')||0;
     lastComplete=localStorage.getItem('dt4_lc')||null;
     const c=localStorage.getItem('dt4_cats');if(c)cats=JSON.parse(c);
+    lockMode=parseInt(localStorage.getItem('dt4_lock')||'0')||0;
 
-  }catch(e){tasks=[];streak=0;lastComplete=null;}
+  }catch(e){tasks=[];streak=0;lastComplete=null;lockMode=0;}
 }
 
 // ══ THEMES ══
@@ -915,9 +940,11 @@ function toggleTask(id){
 // ══ DELETE / EDIT ══
 function delTask(id,e){
   e.stopPropagation();
-  const el=document.getElementById('tk-'+id);
-  if(el){el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='scale(.94)';setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id);save();fullRender();},190);}
-  toast('Task dihapus');
+  showConfirm('Yakin ingin menghapus task ini?', ()=>{
+    const el=document.getElementById('tk-'+id);
+    if(el){el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='scale(.94)';setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id);save();fullRender();},190);}
+    toast('Task dihapus');
+  });
 }
 function editTask(id,e){
   e.stopPropagation();
@@ -1035,6 +1062,23 @@ function scheduleAllNotifs(){
   Object.values(notifTimers).forEach(clearTimeout);
   notifTimers={};
   if(notifGranted()) tasks.forEach(scheduleNotif);
+}
+
+
+// ══ CONFIRM POPUP ══
+let _confirmCb=null;
+function showConfirm(msg, cb){
+  _confirmCb=cb;
+  document.getElementById('confirmMsg').textContent=msg;
+  document.getElementById('confirmOv').classList.add('open');
+}
+function closeConfirm(){
+  document.getElementById('confirmOv').classList.remove('open');
+  _confirmCb=null;
+}
+function okConfirm(){
+  document.getElementById('confirmOv').classList.remove('open');
+  if(_confirmCb){_confirmCb();_confirmCb=null;}
 }
 
 // ══ TOAST ══

@@ -257,6 +257,40 @@ body.lock-on .task-item{cursor:pointer}
 .confirm-acts{display:flex;gap:10px}
 .confirm-acts .btn{font-size:14px;padding:11px}
 
+
+/* ── GROUPS / TABS ── */
+.groups-bar{display:flex;align-items:center;gap:0;overflow-x:auto;padding:10px 14px 0;scrollbar-width:none;background:var(--hdr-bg)}
+.groups-bar::-webkit-scrollbar{display:none}
+.group-tab{flex-shrink:0;padding:7px 16px;border-radius:12px 12px 0 0;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;border:none;background:var(--surface2);color:var(--muted);transition:background .18s,color .18s;border-bottom:2px solid transparent;white-space:nowrap}
+.group-tab.active{background:var(--surface);color:var(--accent);border-bottom-color:var(--accent)}
+.group-tab-add{flex-shrink:0;width:32px;height:32px;border:none;border-radius:10px;background:rgba(79,195,247,.12);color:var(--accent);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-left:6px;transition:transform .12s ease}
+.group-tab-add:active{transform:scale(.88)}
+
+/* ── MULTI SELECT ── */
+.multisel-bar{display:none;align-items:center;gap:10px;padding:8px 14px;background:rgba(239,83,80,.1);border-bottom:1px solid rgba(239,83,80,.2)}
+.multisel-bar.show{display:flex}
+.multisel-info{flex:1;font-size:13px;font-weight:800;color:var(--danger)}
+.multisel-btn{padding:7px 14px;border:none;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:transform .12s ease}
+.multisel-btn:active{transform:scale(.95)}
+.multisel-del{background:var(--danger);color:#fff}
+.multisel-cancel{background:var(--surface2);color:var(--muted)}
+
+/* Task select circle */
+.t-sel-circle{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:transparent;flex-shrink:0;display:none;align-items:center;justify-content:center;transition:all .18s;margin-right:2px}
+.multiselect-mode .t-sel-circle{display:flex}
+.t-sel-circle.sel{background:var(--accent);border-color:var(--accent)}
+.t-sel-circle.sel::after{content:'✔';font-size:11px;color:#fff}
+.multiselect-mode .checkbox{display:none}
+
+/* ── DRAG REORDER ── */
+.task-item.dragging{opacity:.55;transform:scale(1.03);box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:50;transition:none!important}
+.task-item.drag-over{border-top:2px solid var(--accent)}
+
+/* ── SHARED PHOTO badge ── */
+.shared-photo-btn{padding:6px 10px;border:none;border-radius:9px;background:rgba(79,195,247,.13);color:var(--accent);font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:transform .12s ease;white-space:nowrap}
+.shared-photo-btn:active{transform:scale(.93)}
+.shared-photo-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:99px}
 </style>
@@ -283,6 +317,8 @@ body.lock-on .task-item{cursor:pointer}
     <div class="date-pill" id="datePill">-</div>
     <div class="streak-badge" onclick="showStreakInfo()">&#x1F525;<span id="streakNum">0</span></div>
     <button class="lock-btn" id="lockBtn" onclick="cycleLock()">&#x1F513; <span id="lockTxt">Bebas</span></button>
+    <button class="lock-btn" onclick="openSharedModal()" style="background:rgba(79,195,247,.1);color:var(--accent);font-size:14px" title="Foto Bersama">&#x1F5BC;</button>
+    <button class="lock-btn" id="selModeBtn" onclick="toggleMultiSel()" style="background:rgba(79,195,247,.1);color:var(--accent)">&#x25CB;</button>
   </div>
   <div class="prog-row">
     <div class="prog-lbl" id="progLbl">0/0</div>
@@ -296,11 +332,67 @@ body.lock-on .task-item{cursor:pointer}
     </div>
   </div>
 </div>
+
+<!-- GROUPS BAR -->
+<div class="groups-bar" id="groupsBar"></div>
+<!-- MULTISELECT BAR -->
+<div class="multisel-bar" id="multiselBar">
+  <div class="multisel-info" id="multiselInfo">0 dipilih</div>
+  <button class="multisel-btn multisel-cancel" onclick="cancelMultiSel()">Batal</button>
+  <button class="multisel-btn multisel-del" onclick="deleteSelected()">Hapus</button>
+</div>
+
 <div class="content" id="content"></div>
 </div><!-- /contentRoot -->
 
 <button class="fab-add" id="fabAdd" onclick="openAdd()">+</button>
 
+
+<!-- GROUP MODAL -->
+<div class="modal-ov" id="groupModal" onclick="if(event.target===this)closeGroupModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-ttl" id="groupModalTtl">Grup Baru</div>
+    <div class="inp-grp"><label class="inp-lbl">Nama Grup</label><input class="inp-field" id="iGroupName" placeholder="Contoh: Kerja, Rumah, Gym..." maxlength="30" autocomplete="off"></div>
+    <div class="modal-acts">
+      <button class="btn btn-cancel" onclick="closeGroupModal()">Batal</button>
+      <button class="btn btn-save" onclick="saveGroup()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARED PHOTO MODAL -->
+<div class="modal-ov" id="sharedPhotoModal" onclick="if(event.target===this)closeSharedModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-ttl">&#x1F5BC; Foto Bersama</div>
+    <div class="inp-grp"><label class="inp-lbl">1 Foto untuk beberapa task sekaligus</label>
+      <div class="bg-picker-row">
+        <div class="bg-thumb" id="sharedPickThumb" onclick="triggerFile('sharedPhotoFile')" style="width:68px;height:48px">&#x1F5BC;</div>
+        <div class="bg-btns">
+          <button class="btn-sm btn-sm-pick" onclick="triggerFile('sharedPhotoFile')">Pilih Foto</button>
+          <button class="btn-sm btn-sm-recrop" id="btnReShared" onclick="reCropShared()" style="display:none">Sesuaikan</button>
+        </div>
+      </div>
+    </div>
+    <div class="inp-grp" id="sharedOpSection" style="display:none">
+      <label class="inp-lbl">Kecerahan Foto</label>
+      <div class="op-track-wrap" id="sharedOpWrap"><div class="op-track" id="sharedOpTrack"><div class="op-filled" id="sharedOpFilled"></div><div class="op-thumb" id="sharedOpThumb"></div></div></div>
+      <div class="op-labels"><span>Gelap (10%)</span><span>Terang (100%)</span></div>
+      <div class="op-val" id="sharedOpVal">60%</div>
+    </div>
+    <div class="inp-grp" id="sharedTaskPickSection" style="display:none">
+      <label class="inp-lbl">Pilih Task yang Pakai Foto Ini</label>
+      <div id="sharedTaskList" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-cancel" onclick="closeSharedModal()">Batal</button>
+      <button class="btn btn-save" onclick="applySharedPhoto()">Terapkan</button>
+    </div>
+  </div>
+</div>
+
+<label style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;left:-9999px;top:0"><input type="file" id="sharedPhotoFile" accept="image/*" onchange="onSharedPhotoFile(event)"></label>
 <label style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;left:-9999px;top:0"><input type="file" id="bgFile" accept="image/*" onchange="onBgFileTask(event)"></label>
 
 <!-- TASK MODAL -->
@@ -805,7 +897,8 @@ function checkReset(){
   if(saved&&saved!==today){
     const yest=new Date(today+'T00:00:00');yest.setDate(yest.getDate()-1);
     const ys=`${yest.getFullYear()}-${pad(yest.getMonth()+1)}-${pad(yest.getDate())}`;
-    const tot=tasks.length,dn=tasks.filter(t=>t.done).length;
+    const groupTasks2=tasks.filter(t=>(t.groupId||'default')===activeGroupId);
+  const tot=groupTasks2.length,dn=groupTasks2.filter(t=>t.done).length;
     if(tot>0&&dn===tot&&saved===ys)streak++;else if(tot>0&&dn<tot)streak=0;
     tasks=tasks.map(t=>({...t,done:false}));localStorage.setItem('dt4_date',today);save();
   }else if(!saved)localStorage.setItem('dt4_date',today);
@@ -819,7 +912,8 @@ setInterval(()=>{const t=getToday();if(t!==lastChecked){lastChecked=t;checkReset
 function cycleLock(){
   lockMode=(lockMode+1)%3;
   applyLockUI();
-  const msgs=['Mode bebas','Kunci ON — hanya bisa centang','Kunci OFF — hanya lihat'];
+  localStorage.setItem('dt4_lock',String(lockMode));// direct save — bypass save() chain
+  const msgs=['Mode bebas','Kunci ON — hanya centang','Kunci OFF — hanya lihat'];
   toast(msgs[lockMode]);
 }
 function applyLockUI(){
@@ -833,7 +927,8 @@ function applyLockUI(){
 
 // ══ PROGRESS ══
 function updateProgress(){
-  const tot=tasks.length,dn=tasks.filter(t=>t.done).length;
+  const groupTasks2=tasks.filter(t=>(t.groupId||'default')===activeGroupId);
+  const tot=groupTasks2.length,dn=groupTasks2.filter(t=>t.done).length;
   const pct=tot>0?Math.round(dn/tot*100):0;
   document.getElementById('progLbl').textContent=`${dn}/${tot}`;
   document.getElementById('progBar').style.width=pct+'%';
@@ -844,7 +939,8 @@ function updateProgress(){
 
 // ══ DONE BANNER ══
 function updateBanner(){
-  const tot=tasks.length,dn=tasks.filter(t=>t.done).length;
+  const groupTasks2=tasks.filter(t=>(t.groupId||'default')===activeGroupId);
+  const tot=groupTasks2.length,dn=groupTasks2.filter(t=>t.done).length;
   let b=document.getElementById('doneBanner');
   if(tot>0&&dn===tot){
     const today=getToday();
@@ -868,7 +964,8 @@ function fullRender(){
   updateProgress();
   const ct=document.getElementById('content');ct.innerHTML='';
   if(!tasks.length){ct.innerHTML=`<div class="empty-state"><div class="empty-ico">&#x1F4CB;</div><div class="empty-ttl">Belum ada task</div><div class="empty-sub">Tekan + untuk tambah task harianmu</div></div>`;return;}
-  const map={};tasks.forEach(t=>{if(!map[t.category])map[t.category]=[];map[t.category].push(t);});
+  const groupTasks=tasks.filter(t=>(t.groupId||'default')===activeGroupId);
+  const map={};groupTasks.forEach(t=>{if(!map[t.category])map[t.category]=[];map[t.category].push(t);});
   Object.keys(map).forEach(cat=>{
     const items=map[cat],cd=items.filter(t=>t.done).length,cc=items[0].color||COLORS[0];
     const sec=document.createElement('div');sec.className='cat-section';sec.dataset.cat=cat;
@@ -886,14 +983,14 @@ function buildEl(task){
   el.style.animation='popIn .18s ease both';
   const hasBg=!!(task.bgData&&task.bgData.length>5);
   const op=(task.bgOpacity||60)/100;
-  // Use CSS vars so theme changes apply; overlay opacity differs for photo vs no-photo
-  const bgc=task.done
-    ? (hasBg ? 'rgba(27,58,31,.68)' : 'var(--card-done-bg)')
-    : (hasBg ? 'var(--bg-overlay,rgba(15,22,41,.55))' : 'var(--card-bg)');
+  const bgc=task.done?(hasBg?'rgba(27,58,31,.68)':'var(--card-done-bg)'):(hasBg?'var(--bg-overlay,rgba(15,22,41,.55))':'var(--card-bg)');
+  // sel circle for multi-select
+  const selCircleHtml=`<div class="t-sel-circle${selectedIds.has(task.id)?' sel':''}"></div>`;
   el.innerHTML=`
     ${hasBg?`<div class="t-bg-img" style="background-image:url('${task.bgData}');opacity:${op}"></div>`:''}
     <div class="t-bg-col" id="bc-${task.id}" style="background:${bgc}"></div>
     <div class="t-inner">
+      ${selCircleHtml}
       <div class="checkbox" id="cb-${task.id}"><span class="check-ico" id="ci-${task.id}">&#x2714;</span></div>
       <div class="t-info">
         <div class="t-lbl" id="lb-${task.id}">${escH(task.name)}</div>
@@ -909,9 +1006,11 @@ function buildEl(task){
   el.addEventListener('touchend',()=>clearTimeout(pt),{passive:true});
   el.addEventListener('click',e=>{
     if(e.target.closest('.t-acts'))return;
-    if(lockMode===2)return; // lock-off: do nothing
+    if(multiSelMode){ toggleSelectTask(task.id); return; }
+    if(lockMode===2)return;
     toggleTask(task.id);
   });
+  initDragOnEl(el, task.id);
   return el;
 }
 
@@ -982,7 +1081,7 @@ function saveTask(){
     if(t){t.name=name;t.time=time;t.category=cat;t.color=selCol;t.bgData=selBg;t.bgRaw=selRawBg;t.bgOpacity=selOp;t.notif=notif;}
     toast('Task diperbarui');
   }else{
-    tasks.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),name,time,category:cat,color:selCol,bgData:selBg,bgRaw:selRawBg,bgOpacity:selOp,notif,done:false});
+    tasks.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),name,time,category:cat,color:selCol,bgData:selBg,bgRaw:selRawBg,bgOpacity:selOp,notif,done:false,groupId:activeGroupId});
     toast('Task ditambahkan');
   }
   save();scheduleAllNotifs();closeTask();fullRender();
@@ -1092,12 +1191,301 @@ function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/
 document.getElementById('iName').addEventListener('keydown',e=>{if(e.key==='Enter')saveTask();});
 document.getElementById('iNewCat').addEventListener('keydown',e=>{if(e.key==='Enter')addCat();});
 
+
+// ══════════════════════════════════════
+// ══ GROUPS ══
+// ══════════════════════════════════════
+// groups: [{id, name}], tasks have groupId field
+let groups = [], activeGroupId = 'default';
+
+function initGroups(){
+  const saved = localStorage.getItem('dt4_groups');
+  if(saved) groups = JSON.parse(saved);
+  if(!groups.length) groups = [{id:'default', name:'Utama'}];
+  if(!activeGroupId) activeGroupId = groups[0].id;
+  // Ensure all tasks have a groupId
+  tasks.forEach(t=>{ if(!t.groupId) t.groupId='default'; });
+}
+function saveGroups(){
+  localStorage.setItem('dt4_groups', JSON.stringify(groups));
+}
+function renderGroupsBar(){
+  const bar = document.getElementById('groupsBar');
+  bar.innerHTML = '';
+  groups.forEach(g=>{
+    const tab = document.createElement('button');
+    tab.className = 'group-tab' + (g.id===activeGroupId?' active':'');
+    tab.textContent = g.name;
+    tab.onclick = ()=>{ activeGroupId=g.id; renderGroupsBar(); fullRender(); };
+    // Long press to rename/delete
+    let pt;
+    tab.addEventListener('touchstart',()=>{pt=setTimeout(()=>openGroupOptions(g),700);},{passive:true});
+    tab.addEventListener('touchend',()=>clearTimeout(pt),{passive:true});
+    bar.appendChild(tab);
+  });
+  // Add group button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'group-tab-add';
+  addBtn.innerHTML = '+';
+  addBtn.title = 'Tambah Grup';
+  addBtn.onclick = ()=>openGroupModal(null);
+  bar.appendChild(addBtn);
+}
+function openGroupModal(editGroup){
+  window._editGroup = editGroup;
+  document.getElementById('iGroupName').value = editGroup ? editGroup.name : '';
+  document.getElementById('groupModalTtl').textContent = editGroup ? 'Edit Grup' : 'Grup Baru';
+  document.getElementById('groupModal').classList.add('open');
+  setTimeout(()=>document.getElementById('iGroupName').focus(), 300);
+}
+function closeGroupModal(){ document.getElementById('groupModal').classList.remove('open'); }
+function saveGroup(){
+  const name = document.getElementById('iGroupName').value.trim();
+  if(!name){ toast('Nama grup kosong!'); return; }
+  if(window._editGroup){
+    window._editGroup.name = name;
+  } else {
+    const id = 'g'+Date.now().toString(36);
+    groups.push({id, name});
+    activeGroupId = id;
+  }
+  saveGroups(); closeGroupModal(); renderGroupsBar(); fullRender();
+  toast(window._editGroup ? 'Grup diperbarui' : `Grup "${name}" dibuat!`);
+}
+function openGroupOptions(g){
+  if(g.id==='default'){ toast('Grup utama tidak bisa dihapus'); return; }
+  showConfirm(`Hapus grup "${g.name}"? Task di dalamnya akan pindah ke Utama.`, ()=>{
+    tasks.forEach(t=>{ if(t.groupId===g.id) t.groupId='default'; });
+    groups = groups.filter(x=>x.id!==g.id);
+    if(activeGroupId===g.id) activeGroupId='default';
+    save(); saveGroups(); renderGroupsBar(); fullRender();
+    toast(`Grup "${g.name}" dihapus`);
+  });
+}
+document.getElementById('iGroupName').addEventListener('keydown',e=>{if(e.key==='Enter')saveGroup();});
+
+// ══════════════════════════════════════
+// ══ MULTI SELECT ══
+// ══════════════════════════════════════
+let multiSelMode = false;
+let selectedIds = new Set();
+
+function toggleMultiSel(){
+  multiSelMode = !multiSelMode;
+  selectedIds.clear();
+  document.getElementById('content').classList.toggle('multiselect-mode', multiSelMode);
+  document.getElementById('multiselBar').classList.toggle('show', multiSelMode);
+  document.getElementById('selModeBtn').style.background = multiSelMode ? 'rgba(79,195,247,.25)' : 'rgba(79,195,247,.1)';
+  document.getElementById('selModeBtn').innerHTML = multiSelMode ? '&#x2715;' : '&#x25CB;';
+  updateMultiSelInfo();
+  // Re-render to show/hide select circles
+  fullRender();
+}
+function cancelMultiSel(){
+  multiSelMode = false;
+  selectedIds.clear();
+  document.getElementById('content').classList.remove('multiselect-mode');
+  document.getElementById('multiselBar').classList.remove('show');
+  document.getElementById('selModeBtn').style.background = 'rgba(79,195,247,.1)';
+  document.getElementById('selModeBtn').innerHTML = '&#x25CB;';
+  fullRender();
+}
+function toggleSelectTask(id){
+  if(selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  // Update circle UI
+  const circle = document.querySelector(`#tk-${id} .t-sel-circle`);
+  if(circle) circle.classList.toggle('sel', selectedIds.has(id));
+  updateMultiSelInfo();
+}
+function updateMultiSelInfo(){
+  document.getElementById('multiselInfo').textContent = selectedIds.size + ' dipilih';
+}
+function deleteSelected(){
+  if(!selectedIds.size){ toast('Pilih task dulu!'); return; }
+  showConfirm(`Hapus ${selectedIds.size} task sekaligus?`, ()=>{
+    tasks = tasks.filter(t=>!selectedIds.has(t.id));
+    save(); cancelMultiSel(); fullRender();
+    toast('Task dihapus');
+  });
+}
+
+// ══════════════════════════════════════
+// ══ DRAG TO REORDER ══
+// ══════════════════════════════════════
+let dragSrc = null, dragLongTimer = null;
+let _dragStartY = 0, _dragCurrentY = 0, _dragEl = null, _dragClone = null, _dragItems = [];
+
+function initDragOnEl(el, taskId){
+  let pressTimer = null, isDragging = false;
+
+  el.addEventListener('touchstart', e=>{
+    if(multiSelMode) return;
+    pressTimer = setTimeout(()=>{
+      // Long press 2s — start drag
+      isDragging = true;
+      el.classList.add('dragging');
+      navigator.vibrate && navigator.vibrate(40);
+      _dragEl = el;
+      _dragStartY = e.touches[0].clientY;
+      _dragItems = Array.from(el.parentElement.children).filter(c=>c.classList.contains('task-item'));
+    }, 2000);
+  },{passive:true});
+
+  el.addEventListener('touchmove', e=>{
+    if(!isDragging){ clearTimeout(pressTimer); return; }
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    const dy = y - _dragStartY;
+    _dragStartY = y;
+    // Move element visually
+    const curTop = parseInt(el.style.marginTop||'0') + dy;
+    el.style.marginTop = curTop + 'px';
+    el.style.zIndex = '50';
+    // Find insertion point
+    _dragItems.forEach(item=>{
+      if(item===el) return;
+      const rect = item.getBoundingClientRect();
+      const mid = rect.top + rect.height/2;
+      item.classList.toggle('drag-over', y > rect.top && y < rect.top + rect.height);
+    });
+  },{passive:false});
+
+  el.addEventListener('touchend', e=>{
+    clearTimeout(pressTimer);
+    if(!isDragging) return;
+    isDragging = false;
+    el.classList.remove('dragging');
+    el.style.marginTop = '';
+    el.style.zIndex = '';
+    // Find target position
+    const y = e.changedTouches[0].clientY;
+    let targetIdx = -1;
+    _dragItems.forEach((item,i)=>{
+      item.classList.remove('drag-over');
+      if(item===el) return;
+      const rect = item.getBoundingClientRect();
+      if(y >= rect.top && y < rect.top + rect.height) targetIdx = i;
+    });
+    if(targetIdx !== -1){
+      // Reorder tasks array
+      const catTasks = tasks.filter(t=>t.groupId===activeGroupId && t.category===_dragItems[0].dataset.cat);
+      const srcIdx = catTasks.findIndex(t=>'tk-'+t.id === el.id);
+      if(srcIdx !== -1 && targetIdx !== srcIdx){
+        const [moved] = catTasks.splice(srcIdx,1);
+        catTasks.splice(targetIdx,0,moved);
+        // Apply reorder back to tasks array preserving other groups
+        const others = tasks.filter(t=>!(t.groupId===activeGroupId && t.category===_dragItems[0].dataset.cat));
+        tasks = [...others, ...catTasks];
+        save();
+      }
+    }
+    fullRender();
+  },{passive:true});
+}
+
+// ══════════════════════════════════════
+// ══ SHARED PHOTO ══
+// ══════════════════════════════════════
+let sharedRawBg = null, sharedCroppedBg = null, sharedOpacity = 60;
+
+function onSharedPhotoFile(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{sharedRawBg=ev.target.result;openCrop(sharedRawBg,'task');
+    // After crop, result goes to sharedCroppedBg
+    window._cropTarget_shared = true;
+  };
+  r.readAsDataURL(f);e.target.value='';
+}
+function reCropShared(){ if(sharedRawBg)openCrop(sharedRawBg,'task'); }
+
+function openSharedModal(){
+  sharedRawBg=null;sharedCroppedBg=null;sharedOpacity=60;
+  document.getElementById('sharedPickThumb').style.backgroundImage='none';
+  document.getElementById('sharedPickThumb').innerHTML='&#x1F5BC;';
+  document.getElementById('btnReShared').style.display='none';
+  document.getElementById('sharedOpSection').style.display='none';
+  document.getElementById('sharedTaskPickSection').style.display='none';
+  document.getElementById('sharedPhotoModal').classList.add('open');
+}
+function closeSharedModal(){ document.getElementById('sharedPhotoModal').classList.remove('open'); }
+
+function renderSharedTaskList(){
+  const list = document.getElementById('sharedTaskList');
+  list.innerHTML='';
+  const groupTasks = tasks.filter(t=>t.groupId===activeGroupId);
+  groupTasks.forEach(t=>{
+    const item = document.createElement('label');
+    item.style.cssText='display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:10px;padding:10px 12px;cursor:pointer';
+    const cb = document.createElement('input');
+    cb.type='checkbox'; cb.value=t.id;
+    cb.style.width='18px';cb.style.height='18px';cb.style.accentColor='var(--accent)';
+    const span = document.createElement('span');
+    span.style.cssText='font-size:14px;font-weight:700;color:var(--text)';
+    span.textContent=t.name;
+    item.appendChild(cb);item.appendChild(span);
+    list.appendChild(item);
+  });
+}
+
+function applySharedPhoto(){
+  if(!sharedCroppedBg){ toast('Pilih foto dulu!'); return; }
+  const checked = Array.from(document.querySelectorAll('#sharedTaskList input:checked')).map(i=>i.value);
+  if(!checked.length){ toast('Pilih minimal 1 task!'); return; }
+  checked.forEach(id=>{
+    const t=tasks.find(x=>x.id===id);
+    if(t){ t.bgData=sharedCroppedBg; t.bgRaw=sharedRawBg; t.bgOpacity=sharedOpacity; }
+  });
+  save(); closeSharedModal(); fullRender();
+  toast(`Foto diterapkan ke ${checked.length} task!`);
+}
+
+// Patch confirmCrop to handle shared photo target
+const _origConfirmCrop = confirmCrop;
+function confirmCrop(){
+  const scale=crop.iW/crop.nW;
+  const srcX=(crop.fL-crop.iL)/scale;
+  const srcY=(crop.fT-crop.iT)/scale;
+  const srcW=crop.fW/scale;
+  const srcH=crop.fH/scale;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const expW=Math.round(crop.fW*dpr);
+  const expH=Math.round(crop.fH*dpr);
+  const canvas=document.createElement('canvas');
+  canvas.width=expW;canvas.height=expH;
+  canvas.getContext('2d').drawImage(document.getElementById('cropImg'),srcX,srcY,srcW,srcH,0,0,expW,expH);
+  const url=canvas.toDataURL('image/jpeg',0.88);
+  document.getElementById('cropOv').classList.remove('open');
+  if(window._cropTarget_shared){
+    window._cropTarget_shared=false;
+    sharedCroppedBg=url;
+    document.getElementById('sharedPickThumb').style.backgroundImage=`url('${url}')`;
+    document.getElementById('sharedPickThumb').innerHTML='';
+    document.getElementById('btnReShared').style.display='block';
+    document.getElementById('sharedOpSection').style.display='block';
+    document.getElementById('sharedTaskPickSection').style.display='block';
+    renderSharedTaskList();
+    // Init opacity slider
+    setTimeout(()=>{
+      const w=document.getElementById('sharedOpWrap');
+      if(w&&!w._init){w._init=true;initSlider(w,'sharedOpTrack','sharedOpFilled','sharedOpThumb','sharedOpVal',10,100,v=>sharedOpacity=v);}
+      setSlider('sharedOpTrack','sharedOpFilled','sharedOpThumb','sharedOpVal',sharedOpacity,10,100);
+    },100);
+  } else if(crop.target==='task'){
+    selBg=url; updateBgPreview();
+  }
+  toast('Foto disesuaikan!');
+}
+
+
 // ══ INIT ══
 load();
+initGroups();
 currentTheme=localStorage.getItem('dt4_theme')||'malam';
 applyTheme(currentTheme);
 checkReset();
-renderColors();updateBgPreview();updateOpUI();applyLockUI();
+renderColors();updateBgPreview();updateOpUI();applyLockUI();renderGroupsBar();
 fullRender();
 // Auto-request notif permission if any task has notif enabled
 if(tasks.some(t=>t.notif)&&notifSupported()&&Notification.permission==='default'){
